@@ -1,0 +1,96 @@
+#assignment_code
+
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+/kaggle/input/summer-analytics-mid-hackathon/hacktest.csv
+/kaggle/input/summer-analytics-mid-hackathon/hacktrain.csv
+
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.impute import KNNImputer
+from sklearn.metrics import classification_report, accuracy_score
+
+# Load data
+train_df = pd.read_csv("/kaggle/input/summer-analytics-mid-hackathon/hacktrain.csv")
+test_df = pd.read_csv("/kaggle/input/summer-analytics-mid-hackathon/hacktest.csv")
+
+# Save test IDs
+test_ID = test_df['ID']
+test_df.drop(columns=['ID'], inplace=True)
+
+# Drop ID column from train
+train_df.drop(columns=['ID'], inplace=True)
+
+# Encode target
+label_encoder = LabelEncoder()
+train_df['class'] = label_encoder.fit_transform(train_df['class'])
+
+# Split into features/target
+X = train_df.drop(columns=['class'])
+y = train_df['class']
+
+# Impute missing values
+imputer = KNNImputer(n_neighbors=5)
+X = imputer.fit_transform(X)
+test_df = imputer.transform(test_df)
+
+# Scale
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
+test_df = scaler.transform(test_df)
+
+# Train/validation split
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Fit model
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train, y_train)
+
+# Evaluate
+val_preds = model.predict(X_val)
+print(classification_report(y_val, val_preds, target_names=label_encoder.classes_))
+print("Validation Accuracy:", accuracy_score(y_val, val_preds))
+
+# Predict on test data
+test_preds = model.predict(test_df)
+test_preds_decoded = label_encoder.inverse_transform(test_preds)
+
+# Submission
+submission = pd.DataFrame({
+    'ID': test_ID,
+    'class': test_preds_decoded
+})
+submission.to_csv("submission.csv", index=False)
+              precision    recall  f1-score   support
+
+        farm       0.89      0.86      0.87       168
+      forest       0.99      1.00      0.99      1232
+       grass       0.80      0.72      0.76        39
+  impervious       0.83      0.90      0.86       134
+     orchard       0.75      0.50      0.60         6
+       water       0.90      0.86      0.88        21
+
+    accuracy                           0.96      1600
+   macro avg       0.86      0.81      0.83      1600
+weighted avg       0.96      0.96      0.96      1600
+
+Validation Accuracy: 0.9625
+
